@@ -1,4 +1,6 @@
-from fastapi import Depends, FastAPI, Header, Request
+import logging
+logging.basicConfig(level=logging.INFO)
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, Request
 from sqlalchemy.orm import Session
 
 import app.models  # noqa: F401
@@ -7,6 +9,7 @@ from app.db.deps import get_db
 from app.db.session import engine
 from app.schemas.schemas import GenerateRequest, GenerateResponse
 from app.services.metering import record_usage
+from app.services.reconciliation import reconcile_subscription
 from app.services.stripe_service import (
     construct_stripe_event,
     create_checkout_session,
@@ -76,6 +79,23 @@ def billing_success(session_id: str | None = None):
 def billing_cancel():
     return {
         "status": "checkout_canceled",
+    }
+
+
+
+@app.post("/billing/reconcile/{subscription_id}")
+def reconcile(
+    subscription_id: int,
+    background_tasks: BackgroundTasks,
+):
+    background_tasks.add_task(
+        reconcile_subscription,
+        subscription_id,
+    )
+
+    return {
+        "status": "scheduled",
+        "subscription_id": subscription_id,
     }
 
 

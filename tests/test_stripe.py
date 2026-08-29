@@ -175,3 +175,89 @@ def test_checkout_webhook_upgrades_tenant_to_pro():
     )
 
     db.close()
+
+
+def test_subscription_updated_syncs_status():
+    db = SessionLocal()
+
+    subscription = db.scalar(
+        select(Subscription).where(
+            Subscription.tenant_id == 1
+        )
+    )
+
+    subscription.stripe_subscription_id = "sub_update_test"
+    subscription.status = "active"
+    db.commit()
+
+    event = {
+        "id": "evt_subscription_updated_test",
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "id": "sub_update_test",
+                "status": "past_due",
+            }
+        },
+    }
+
+    result = process_stripe_event(db, event)
+
+    assert result["duplicate"] is False
+
+    db.expire_all()
+
+    updated = db.scalar(
+        select(Subscription).where(
+            Subscription.stripe_subscription_id
+            == "sub_update_test"
+        )
+    )
+
+    assert updated is not None
+    assert updated.status == "past_due"
+
+    db.close()
+
+
+def test_subscription_deleted_marks_subscription_canceled():
+    db = SessionLocal()
+
+    subscription = db.scalar(
+        select(Subscription).where(
+            Subscription.tenant_id == 1
+        )
+    )
+
+    subscription.stripe_subscription_id = "sub_delete_test"
+    subscription.status = "active"
+    db.commit()
+
+    event = {
+        "id": "evt_subscription_deleted_test",
+        "type": "customer.subscription.deleted",
+        "data": {
+            "object": {
+                "id": "sub_delete_test",
+                "status": "canceled",
+            }
+        },
+    }
+
+    result = process_stripe_event(db, event)
+
+    assert result["duplicate"] is False
+
+    db.expire_all()
+
+    deleted = db.scalar(
+        select(Subscription).where(
+            Subscription.stripe_subscription_id
+            == "sub_delete_test"
+        )
+    )
+
+    assert deleted is not None
+    assert deleted.status == "canceled"
+
+    db.close()

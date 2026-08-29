@@ -357,3 +357,28 @@ Second result:
 The second delivery was detected as a duplicate and was not processed again.
 
 This proves that webhook retries do not cause duplicate billing-side effects.
+
+---
+
+## 11. Tenant Isolation
+
+A second tenant was created with its own active Free subscription.
+
+Tenant 1 usage:
+
+100000 AI tokens
+
+Tenant 2 usage:
+
+500 AI tokens
+
+The usage summary for each tenant remained independent.
+
+Result:
+
+Tenant 1 -> 100000 used
+Tenant 2 -> 500 used
+
+Tenant 2 did not inherit or include Tenant 1 usage.
+
+This proves that usage events, quota calculations, and usage summaries are isolated by tenant.

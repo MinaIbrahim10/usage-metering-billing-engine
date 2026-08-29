@@ -158,3 +158,60 @@ def test_negative_tokens_are_rejected_at_boundary():
     response = client.post("/generate", json=payload)
 
     assert response.status_code == 422
+
+
+def test_tenant_usage_is_isolated():
+    db = SessionLocal()
+
+    free_plan = db.scalar(
+        select(Plan).where(Plan.name == "Free")
+    )
+
+    tenant_two = Tenant(name="Second Test Tenant")
+    db.add(tenant_two)
+    db.commit()
+    db.refresh(tenant_two)
+
+    subscription = Subscription(
+        tenant_id=tenant_two.id,
+        plan_id=free_plan.id,
+        status="active",
+    )
+
+    db.add(subscription)
+    db.commit()
+
+    tenant_two_id = tenant_two.id
+    db.close()
+
+    payload = {
+        "tenant_id": tenant_two_id,
+        "idempotency_key": "tenant-two-request",
+        "input_tokens": 500,
+        "cached_input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_tokens": 0,
+    }
+
+    response = client.post("/generate", json=payload)
+
+    assert response.status_code == 200
+
+    tenant_one_usage = client.get("/usage/1")
+    tenant_two_usage = client.get(
+        f"/usage/{tenant_two_id}"
+    )
+
+    assert tenant_one_usage.status_code == 200
+    assert tenant_two_usage.status_code == 200
+
+    tenant_one_body = tenant_one_usage.json()
+    tenant_two_body = tenant_two_usage.json()
+
+    assert tenant_one_body["ai_tokens"]["used"] == 100_000
+    assert tenant_two_body["ai_tokens"]["used"] == 500
+
+    assert (
+        tenant_one_body["tenant_id"]
+        != tenant_two_body["tenant_id"]
+    )

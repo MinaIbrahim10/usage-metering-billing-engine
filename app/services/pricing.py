@@ -3,6 +3,22 @@ from dataclasses import dataclass
 
 # Cost values are integer micro-units per 1,000,000 tokens.
 # These are pinned demo pricing constants for the capstone.
+# Pinned pricing profile used by this capstone.
+#
+# Money is stored entirely as integer micro-dollars:
+#     1 USD = 1_000_000 micro-units
+#
+# Therefore:
+#     fresh input   = $1.00 / 1M tokens
+#     cached input  = $0.25 / 1M tokens
+#     output        = $4.00 / 1M tokens
+#     reasoning     = output-priced
+#
+# Keeping the rates pinned makes calculations deterministic and auditable.
+PRICING_PROFILE = "capstone-v1"
+PRICING_CURRENCY = "USD"
+MICRO_UNITS_PER_USD = 1_000_000
+
 INPUT_PRICE_PER_MILLION = 1_000_000
 CACHED_INPUT_PRICE_PER_MILLION = 250_000
 OUTPUT_PRICE_PER_MILLION = 4_000_000

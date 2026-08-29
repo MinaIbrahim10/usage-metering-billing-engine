@@ -88,6 +88,30 @@ def record_usage(
 
     current_tokens = int(current_tokens or 0)
 
+    # Current monthly API-call usage.
+    current_api_calls = db.scalar(
+        select(
+            func.coalesce(func.sum(UsageEvent.api_calls), 0)
+        ).where(
+            UsageEvent.tenant_id == request.tenant_id,
+            UsageEvent.created_at >= _month_start(),
+        )
+    )
+
+    current_api_calls = int(current_api_calls or 0)
+
+    # Each /generate request counts as one API call.
+    if current_api_calls + 1 > plan.api_call_limit:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": "API call quota exceeded",
+                "used": current_api_calls,
+                "requested": 1,
+                "limit": plan.api_call_limit,
+            },
+        )
+
     # 6. Enforce quota BEFORE storing the event.
     if current_tokens + total_requested_tokens > plan.ai_token_limit:
         raise HTTPException(
@@ -121,6 +145,7 @@ def record_usage(
         tenant_id=request.tenant_id,
         usage_type="ai_tokens",
         quantity=total_requested_tokens,
+        api_calls=1,
         idempotency_key=request.idempotency_key,
         input_tokens=request.input_tokens,
         cached_input_tokens=request.cached_input_tokens,

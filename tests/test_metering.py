@@ -86,6 +86,15 @@ def test_duplicate_request_creates_one_event():
         == second_body["usage_event_id"]
     )
 
+    usage = client.get("/usage/1")
+    assert usage.status_code == 200
+
+    usage_body = usage.json()
+
+    # A retry of the same billable operation must not
+    # consume a second API call.
+    assert usage_body["api_calls"]["used"] == 1
+
     db = SessionLocal()
 
     events = db.scalars(
@@ -215,3 +224,92 @@ def test_tenant_usage_is_isolated():
         tenant_one_body["tenant_id"]
         != tenant_two_body["tenant_id"]
     )
+
+
+def test_api_call_quota_boundary():
+    db = SessionLocal()
+
+    free_plan = db.scalar(
+        select(Plan).where(Plan.name == "Free")
+    )
+
+    api_tenant = Tenant(name="API Quota Tenant")
+    db.add(api_tenant)
+    db.commit()
+    db.refresh(api_tenant)
+
+    subscription = Subscription(
+        tenant_id=api_tenant.id,
+        plan_id=free_plan.id,
+        status="active",
+    )
+
+    db.add(subscription)
+    db.commit()
+
+    tenant_id = api_tenant.id
+
+    # Preload 999 API calls as historical billable events.
+    for i in range(999):
+        db.add(
+            UsageEvent(
+                tenant_id=tenant_id,
+                usage_type="ai_tokens",
+                quantity=0,
+                api_calls=1,
+                idempotency_key=f"api-preload-{i}",
+                input_tokens=0,
+                cached_input_tokens=0,
+                output_tokens=0,
+                reasoning_tokens=0,
+                cost_micro_units=0,
+            )
+        )
+
+    db.commit()
+    db.close()
+
+    # Call number 1000 should still be allowed.
+    allowed = client.post(
+        "/generate",
+        json={
+            "tenant_id": tenant_id,
+            "idempotency_key": "api-call-1000",
+            "input_tokens": 0,
+            "cached_input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+        },
+    )
+
+    assert allowed.status_code == 200
+
+    usage = client.get(f"/usage/{tenant_id}")
+    assert usage.status_code == 200
+
+    usage_body = usage.json()
+
+    assert usage_body["api_calls"]["used"] == 1000
+    assert usage_body["api_calls"]["remaining"] == 0
+
+    # Call number 1001 must be rejected.
+    blocked = client.post(
+        "/generate",
+        json={
+            "tenant_id": tenant_id,
+            "idempotency_key": "api-call-1001",
+            "input_tokens": 0,
+            "cached_input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+        },
+    )
+
+    assert blocked.status_code == 429
+
+    blocked_body = blocked.json()
+
+    assert blocked_body["detail"]["message"] == "API call quota exceeded"
+    assert blocked_body["detail"]["used"] == 1000
+    assert blocked_body["detail"]["requested"] == 1
+    assert blocked_body["detail"]["limit"] == 1000

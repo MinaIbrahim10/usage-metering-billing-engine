@@ -122,6 +122,12 @@ class UsageEvent(Base):
         default=0,
     )
 
+    api_calls: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+    )
+
     idempotency_key: Mapped[str] = mapped_column(
         String(160),
         nullable=False,

@@ -38,22 +38,28 @@ def get_usage_summary(db: Session, tenant_id: int) -> dict:
     totals = db.execute(
         select(
             func.coalesce(func.sum(UsageEvent.quantity), 0),
+            func.coalesce(func.sum(UsageEvent.api_calls), 0),
             func.coalesce(func.sum(UsageEvent.cost_micro_units), 0),
         ).where(
             UsageEvent.tenant_id == tenant_id,
-            UsageEvent.usage_type == "ai_tokens",
             UsageEvent.created_at >= _month_start(),
         )
     ).one()
 
     used_tokens = int(totals[0] or 0)
-    total_cost = int(totals[1] or 0)
+    used_api_calls = int(totals[1] or 0)
+    total_cost = int(totals[2] or 0)
 
     return {
         "tenant_id": tenant.id,
         "tenant_name": tenant.name,
         "plan": plan.name,
         "subscription_status": subscription.status,
+        "api_calls": {
+            "used": used_api_calls,
+            "limit": plan.api_call_limit,
+            "remaining": max(plan.api_call_limit - used_api_calls, 0),
+        },
         "ai_tokens": {
             "used": used_tokens,
             "limit": plan.ai_token_limit,

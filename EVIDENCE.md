@@ -382,3 +382,55 @@ Tenant 2 -> 500 used
 Tenant 2 did not inherit or include Tenant 1 usage.
 
 This proves that usage events, quota calculations, and usage summaries are isolated by tenant.
+
+---
+
+## 13. API Call Metering and Quota Boundary
+
+Each successful `/generate` request records:
+
+- one API call
+- the associated AI-token usage
+
+A retry using the same idempotency key does not consume a second API call.
+
+Free plan API-call quota:
+
+1000 calls/month
+
+Test setup preloaded:
+
+999 API calls
+
+Call number 1000:
+
+HTTP 200 OK
+
+Usage after the request:
+
+{
+  "used": 1000,
+  "limit": 1000,
+  "remaining": 0
+}
+
+Call number 1001:
+
+HTTP 429 Too Many Requests
+
+Response:
+
+{
+  "detail": {
+    "message": "API call quota exceeded",
+    "used": 1000,
+    "requested": 1,
+    "limit": 1000
+  }
+}
+
+This proves that the exact API-call quota boundary is accepted and usage beyond the limit is rejected.
+
+Automated test suite result after adding API-call metering:
+
+9 passed

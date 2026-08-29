@@ -263,3 +263,97 @@ Still to be added:
 - [ ] Replayed Stripe webhook is processed only once
 - [ ] Tenant isolation proof
 - [ ] Final automated acceptance tests
+
+---
+
+## 8. Stripe Test Checkout — Free to Pro
+
+A real Stripe Checkout session was created in Test Mode for tenant 1.
+
+The checkout used a Stripe test card and completed successfully.
+
+After successful Checkout, Stripe sent a signed:
+
+checkout.session.completed
+
+webhook to:
+
+POST /webhooks/stripe
+
+The webhook was verified and processed by the backend.
+
+Before Checkout:
+
+plan = Free
+AI token limit = 100000
+
+After Checkout:
+
+{
+  "tenant_id": 1,
+  "tenant_name": "Demo Tenant",
+  "plan": "Pro",
+  "subscription_status": "active",
+  "ai_tokens": {
+    "used": 100000,
+    "limit": 2000000,
+    "remaining": 1900000
+  },
+  "cost_micro_units": 101650
+}
+
+Result:
+
+Free -> Pro
+
+This proves that Stripe Checkout and the signed webhook synchronize the tenant subscription state correctly.
+
+---
+
+## 9. Stripe Webhook Signature Verification
+
+A valid Stripe webhook delivered through Stripe CLI returned:
+
+HTTP 200 OK
+
+A manually forged webhook using:
+
+Stripe-Signature: fake-signature
+
+returned:
+
+HTTP/1.1 400 Bad Request
+
+{
+  "detail": "Invalid Stripe webhook signature"
+}
+
+This proves that unverified callers cannot forge Stripe subscription events.
+
+---
+
+## 10. Stripe Webhook Replay Protection
+
+The same Stripe event ID was processed twice:
+
+First result:
+
+{
+  "received": true,
+  "duplicate": false,
+  "event_id": "evt_replay_test_001",
+  "event_type": "product.created"
+}
+
+Second result:
+
+{
+  "received": true,
+  "duplicate": true,
+  "event_id": "evt_replay_test_001",
+  "event_type": "product.created"
+}
+
+The second delivery was detected as a duplicate and was not processed again.
+
+This proves that webhook retries do not cause duplicate billing-side effects.

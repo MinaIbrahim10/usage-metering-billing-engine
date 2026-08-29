@@ -1,0 +1,29 @@
+run: uvicorn app.main:app --host 127.0.0.1 --port 8000
+seed: python -m app.db.seed
+test: python -m pytest -q
+base_url: http://127.0.0.1:8000
+
+endpoints:
+  health:
+    method: GET
+    path: /health
+
+  usage:
+    method: GET
+    path: /usage/{tenant_id}
+
+  generate:
+    method: POST
+    path: /generate
+
+  checkout:
+    method: POST
+    path: /billing/checkout/{tenant_id}
+
+  reconcile:
+    method: POST
+    path: /billing/reconcile/{subscription_id}
+
+  stripe_webhook:
+    method: POST
+    path: /webhooks/stripe

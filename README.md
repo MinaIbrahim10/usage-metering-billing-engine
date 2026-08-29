@@ -179,8 +179,8 @@ Everything can be run without real payments.
 
 Clone the repository:
 
-git clone <repository-url>
-cd flyrank-capstone-metering-billing
+git clone https://github.com/MinaIbrahim10/usage-metering-billing-engine.git
+cd usage-metering-billing-engine
 
 Create a virtual environment:
 

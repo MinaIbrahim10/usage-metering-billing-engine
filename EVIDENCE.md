@@ -735,5 +735,5 @@ Pending final repository-hygiene proof:
 
 - [x] Confirm .env is ignored
 - [x] Scan tracked files/history for real Stripe secrets
-- [ ] Final README / capstone.yaml / BUILDLOG review
-- [ ] Public GitHub repository verification
+- [x] Final README / capstone.yaml / BUILDLOG review
+- [x] Public GitHub repository verification

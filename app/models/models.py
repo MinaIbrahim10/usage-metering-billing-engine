@@ -1,3 +1,4 @@
+from sqlalchemy import Index
 from datetime import UTC, datetime
 
 from sqlalchemy import (
@@ -100,6 +101,11 @@ class UsageEvent(Base):
             "tenant_id",
             "idempotency_key",
             name="uq_usage_tenant_idempotency",
+        ),
+        Index(
+            "ix_usage_events_tenant_created",
+            "tenant_id",
+            "created_at",
         ),
     )
 

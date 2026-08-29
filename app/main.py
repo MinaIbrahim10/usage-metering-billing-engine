@@ -17,7 +17,6 @@ from app.services.stripe_service import (
 )
 from app.services.usage import get_usage_summary
 
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Usage Metering & Billing Engine",
